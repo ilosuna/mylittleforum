@@ -99,6 +99,8 @@ thread_entry_back_link =          '论坛主页'
 thread_entry_back_title =         '回到论坛主页'
 reply_link =                      '发表回复'
 reply_link_title =                '回复本帖'
+report_link =                     '<!-- TODO -->Report entry'
+report_link_title =               '<!-- TODO -->Report i.e. as suspected as spam or as abusive'
 back_to_index_link =              '论坛主页'
 back_to_index_link_title =        '回到论坛主页'
 back_to_entry_link =              '回到[name]发表的帖子'
@@ -454,6 +456,14 @@ flag_ham_warning =                '<!-- TODO -->Please flag and report this entr
 report_flag_ham_submit =          '举报并标记为有害帖'
 flag_ham_submit =                 '标记为有害帖'
 no_authorisation_delete =         '帖子无法删除! 可能由于帖子可删除时限已过, 帖子被锁定或帖子已有回复.'
+
+[report_posting]
+report_posting_hl =               '<!-- TODO -->Report entry'
+report_posting_warning =          '<!-- TODO -->Please report the entry only in the case of suspicion of spam, forum rules violation or a judicial relevant statement.'
+report_reason_spam =              '<!-- TODO -->suspicion of spam'
+report_reason_tos =               '<!-- TODO -->suspicion of forum rules violation'
+report_reason_legal =             '<!-- TODO -->suspicion of a judicial relevant content'
+report_posting_submit =           '<!-- TODO -->Report entry'
 
 [unsubscribe_posting]
 unsubscribed_hl =                 '<!-- TODO -->Quitted subscription'

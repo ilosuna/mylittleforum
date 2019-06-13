@@ -15,7 +15,7 @@ if(empty($_SESSION[$settings['session_prefix'].'user_type'])) exit;
 if($_SESSION[$settings['session_prefix'].'user_type']!=2) exit;
 
 // update data:
-$update['version'] = array('2.4.19.1', '2.4.20', '2.4.99.0');
+$update['version'] = array('2.4.19.1', '2.4.20', '2.4.99.0', '2.4.99.1');
 $update['download_url'] = 'https://github.com/ilosuna/mylittleforum/releases/latest';
 $update['message'] = '';
 
@@ -103,6 +103,16 @@ switch($settings['version']) {
 		$update['items'][] = 'themes/default/style.css';                             // #477
 		$update['items'][] = 'includes/admin.inc.php';                               // #478
 		$update['items'][] = 'includes/user.inc.php';                                // #478
+	case '2.4.99.1':
+		$update['items'][] = 'includes/entry.inc.php';                               // #481
+		$update['items'][] = 'includes/posting.inc.php';                             // #481, #484
+		$update['items'][] = 'includes/thread.inc.php';                              // #481
+		$update['items'][] = 'lang/';                                                // #481
+		$update['items'][] = 'themes/default/subtemplates/entry.inc.tpl';            // #481
+		$update['items'][] = 'themes/default/subtemplates/thread.inc.tpl';           // #481
+		$update['items'][] = 'themes/default/subtemplates/thread_linear.inc.tpl';    // #481
+		$update['items'][] = 'themes/default/subtemplates/posting_user_report.inc.tpl'; // #481
+		$update['items'][] = 'themes/default/subtemplates/admin.inc.tpl';            // #487
 		
 		// !!!Do *NOT* add 'break;' to a single case!!!
 		// This is the only break to avoid the use of the default-case!
@@ -303,6 +313,53 @@ if (empty($update['errors']) && in_array($settings['version'], array('2.4.19.1',
 		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
 	}
 }
+
+if (empty($update['errors']) && in_array($settings['version'], array('2.4.19.1', '2.4.20', '2.4.99.0', '2.4.99.1'))) {
+	$table_prefix = preg_replace('/settings$/u', '', $db_settings['settings_table']);
+	// add new database table
+	if (file_exists("./config/db_settings.php") && is_writable("./config/db_settings.php")) {
+		$db_settings['entries_reports_table'] = $table_prefix . 'entries_reports';
+		$db_settings_file = @fopen("./config/db_settings.php", "w") or $update['errors'][] = str_replace("[CHMOD]", $chmod, $lang['error_overwrite_config_file']);
+		if (empty($update['errors'])) {
+			flock($db_settings_file, 2);
+			fwrite($db_settings_file, "<?php\r\n");
+			fwrite($db_settings_file, "\$db_settings['host']                  = '". addslashes($db_settings['host']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['user']                  = '". addslashes($db_settings['user']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['password']              = '". addslashes($db_settings['password']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['database']              = '". addslashes($db_settings['database']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['settings_table']        = '". addslashes($db_settings['settings_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['forum_table']           = '". addslashes($db_settings['forum_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['category_table']        = '". addslashes($db_settings['category_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['userdata_table']        = '". addslashes($db_settings['userdata_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['smilies_table']         = '". addslashes($db_settings['smilies_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['pages_table']           = '". addslashes($db_settings['pages_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['banlists_table']        = '". addslashes($db_settings['banlists_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['useronline_table']      = '". addslashes($db_settings['useronline_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['login_control_table']   = '". addslashes($db_settings['login_control_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['entry_cache_table']     = '". addslashes($db_settings['entry_cache_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['userdata_cache_table']  = '". addslashes($db_settings['userdata_cache_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['bookmark_table']        = '". addslashes($db_settings['bookmark_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['bookmark_tags_table']   = '". addslashes($db_settings['bookmark_tags_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['entry_tags_table']      = '". addslashes($db_settings['entry_tags_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['tags_table']            = '". addslashes($db_settings['tags_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['read_status_table']     = '". addslashes($db_settings['read_status_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['temp_infos_table']      = '". addslashes($db_settings['temp_infos_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['subscriptions_table']   = '". addslashes($db_settings['subscriptions_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['b8_wordlist_table']     = '". addslashes($db_settings['b8_wordlist_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['b8_rating_table']       = '". addslashes($db_settings['b8_rating_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['akismet_rating_table']  = '". addslashes($db_settings['akismet_rating_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['uploads_table']         = '". addslashes($db_settings['uploads_table']) ."';\r\n");
+			fwrite($db_settings_file, "\$db_settings['entries_reports_table'] = '". addslashes($db_settings['entries_reports_table']) ."';\r\n");
+			fwrite($db_settings_file, "?>\r\n");
+			flock($db_settings_file, 3);
+			fclose($db_settings_file);
+			if(!@mysqli_query($connid, "CREATE TABLE `". $db_settings['user_reports_table'] ."` (`id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, `eid` int(10) UNSIGNED NOT NULL, `user_id` int(10) UNSIGNED NOT NULL, `reason` tinyint(3) UNSIGNED NOT NULL, `description` varchar(255) DEFAULT NULL, PRIMARY KEY (`id`), KEY `eid` (`eid`), KEY `reason` (`reason`), KEY `user_id` (`user_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci")) {
+				$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+			}
+		}
+	}
+}
+
 
 if(empty($update['errors'])) {
 	if(!@mysqli_query($connid, "UPDATE ".$db_settings['temp_infos_table']." SET value='". mysqli_real_escape_string($connid, $newVersion) ."' WHERE name = 'version'")) {

@@ -110,6 +110,8 @@ thread_entry_back_link =    'Tilbage til forum forside'
 thread_entry_back_title =   'Forum forside'
 reply_link =                'Skriv svar'
 reply_link_title =          'Svar på dette indlæg'
+report_link =                     '<!-- TODO -->Report entry'
+report_link_title =               '<!-- TODO -->Report i.e. as suspected as spam or as abusive'
 back_to_index_link =        'Tilbage til forum forside'
 back_to_index_link_title =  'Forum forside'
 back_to_entry_link =        'Tilbage til indlæg skrevet af [name]'
@@ -465,6 +467,14 @@ flag_ham_warning =                '<!-- TODO -->Please flag and report this entr
 report_flag_ham_submit =    'Rapporter og marker som HAM'
 flag_ham_submit =           'Marker kun som HAM'
 no_authorisation_delete =   'Indlægget kan ikke slettes! Enten er det fordi perioden mellem indlæg kan slettes er udløbet, emnet er låst eller der allerede er blevet svaret på dette indlæg.'
+
+[report_posting]
+report_posting_hl =               '<!-- TODO -->Report entry'
+report_posting_warning =          '<!-- TODO -->Please report the entry only in the case of suspicion of spam, forum rules violation or a judicial relevant statement.'
+report_reason_spam =              '<!-- TODO -->suspicion of spam'
+report_reason_tos =               '<!-- TODO -->suspicion of forum rules violation'
+report_reason_legal =             '<!-- TODO -->suspicion of a judicial relevant content'
+report_posting_submit =           '<!-- TODO -->Report entry'
 
 [unsubscribe_posting]
 unsubscribed_hl =                 '<!-- TODO -->Quitted subscription'

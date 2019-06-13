@@ -99,6 +99,8 @@ thread_entry_back_link =          'Volver al indice del foro'
 thread_entry_back_title =         'Pagina del indice del foro'
 reply_link =                      'Contestar al mensaje'
 reply_link_title =                'Contestar a este mensaje'
+report_link =                     '<!-- TODO -->Report entry'
+report_link_title =               '<!-- TODO -->Report i.e. as suspected as spam or as abusive'
 back_to_index_link =              'Volver al indice del foro'
 back_to_index_link_title =        'Pagina del indice del foro'
 back_to_entry_link =              'Volver a la entrada [name]'
@@ -454,6 +456,14 @@ flag_ham_warning =                '<!-- TODO -->Please flag and report this entr
 report_flag_ham_submit =          'Informar y marcar como spam'
 flag_ham_submit =                 'Marcar como bueno (ham)'
 no_authorisation_delete =         'El mensaje no se puede eliminar! Tal vez el plazo de para suprimir mensajes ha expirado, el hilo esta bloqueado o que ya hay respuestas a este anuncio.'
+
+[report_posting]
+report_posting_hl =               '<!-- TODO -->Report entry'
+report_posting_warning =          '<!-- TODO -->Please report the entry only in the case of suspicion of spam, forum rules violation or a judicial relevant statement.'
+report_reason_spam =              '<!-- TODO -->suspicion of spam'
+report_reason_tos =               '<!-- TODO -->suspicion of forum rules violation'
+report_reason_legal =             '<!-- TODO -->suspicion of a judicial relevant content'
+report_posting_submit =           '<!-- TODO -->Report entry'
 
 [unsubscribe_posting]
 unsubscribed_hl =                 '<!-- TODO -->Quitted subscription'
