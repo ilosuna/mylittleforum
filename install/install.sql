@@ -22,7 +22,7 @@ CREATE TABLE mlf2_b8_rating (`eid` int(11) NOT NULL, `spam` tinyint(1) NOT NULL 
 CREATE TABLE mlf2_akismet_rating (`eid` int(11) NOT NULL, `spam` tinyint(1) NOT NULL DEFAULT '0', `spam_check_status` tinyint(1) NOT NULL DEFAULT '0', PRIMARY KEY (`eid`), KEY `akismet_spam` (`spam`), KEY spam_check_status (spam_check_status)) CHARSET=utf8 COLLATE=utf8_general_ci;
 CREATE TABLE mlf2_b8_wordlist (`token` varchar(255) character set utf8mb4 collate utf8_bin NOT NULL, `count_ham` int unsigned default NULL, `count_spam` int unsigned default NULL, PRIMARY KEY (`token`)) CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 CREATE TABLE mlf2_uploads (`id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, `uploader` int(10) UNSIGNED NULL, `filename` varchar(64) NULL, `tstamp` datetime NULL, PRIMARY KEY (id)) ENGINE=InnoDB CHARSET=utf8 COLLATE=utf8_general_ci;
-CREATE TABLE mlf25_entries_reports (`id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, `eid` int(10) UNSIGNED NOT NULL, `user_id` int(10) UNSIGNED NOT NULL, `reason` tinyint(3) UNSIGNED NOT NULL, `description` varchar(255) DEFAULT NULL, PRIMARY KEY (`id`), KEY `eid` (`eid`), KEY `reason` (`reason`), KEY `user_id` (`user_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE mlf2_entries_reports (`id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, `eid` int(10) UNSIGNED NOT NULL, `user_id` int(10) UNSIGNED NOT NULL, `reason` tinyint(3) UNSIGNED NOT NULL, `description` varchar(255) DEFAULT NULL, PRIMARY KEY (`id`), KEY `eid` (`eid`), KEY `reason` (`reason`), KEY `user_id` (`user_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO mlf2_banlists VALUES ('user_agents', '');
 INSERT INTO mlf2_banlists VALUES ('ips', '');
