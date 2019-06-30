@@ -2004,6 +2004,7 @@ switch ($action) {
 			$smarty->assign("subject", $field['subject']);
 			$smarty->assign("name", $field['name']);
 			$smarty->assign("disp_time", $field['time']);
+			$smarty->assign("back", 'entry');
 			$smarty->assign("report_reasons", $report_reasons);
 			$smarty->assign('subtemplate', 'posting_user_report.inc.tpl');
 		} else {
