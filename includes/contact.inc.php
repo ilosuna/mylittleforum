@@ -9,45 +9,44 @@ if (empty($_SESSION[$settings['session_prefix'].'user_id']) && $settings['captch
 	$captcha = new Captcha();
 }
 
-if (isset($_REQUEST['action'])) $action = $_REQUEST['action'];
-else $action = 'main';
+if (isset($_REQUEST['action'])) 
+	$action = $_REQUEST['action'];
+else 
+	$action = 'main';
 
-if(isset($_POST['message_submit'])) $action = 'message_submit';
+if(isset($_POST['message_submit'])) 
+	$action = 'message_submit';
+
+$isUser = isset($_SESSION[$settings['session_prefix'].'user_type']) && isset($_SESSION[$settings['session_prefix'].'user_id']);
+$isModOrAdmin = $isUser && ($_SESSION[$settings['session_prefix'].'user_type'] == 1 || $_SESSION[$settings['session_prefix'].'user_type'] == 2);
 
 switch($action) {
 	case 'main':
 		// set timestamp for SPAM protection
 		setReceiptTimestamp();
 		
-		// sender:
-		if (isset($_SESSION[$settings['session_prefix'].'user_id'])) {
-			$result = @mysqli_query($connid, "SELECT user_email FROM ".$db_settings['userdata_table']." WHERE user_id = '".intval($_SESSION[$settings['session_prefix'].'user_id'])."' LIMIT 1") or raise_error('database_error', mysqli_error($connid));
-			$data = mysqli_fetch_array($result);
-			mysqli_free_result($result);
-			$smarty->assign('sender_email', htmlspecialchars($data['user_email']));
-		} else {
-			$smarty->assign('sender_email', '');
-		}
+		// sender id
+		$smarty->assign('user_id', isset($_SESSION[$settings['session_prefix'].'user_id']) ? intval($_SESSION[$settings['session_prefix'].'user_id']) : FALSE);
 
 		if (isset($_REQUEST['id'])) {
 			// contact by entry:
-			$result = @mysqli_query($connid, "SELECT user_id, name, email FROM ".$db_settings['forum_table']." WHERE id = ".intval($_REQUEST['id'])." LIMIT 1") or raise_error('database_error', mysqli_error($connid));
+			$result = @mysqli_query($connid, "SELECT user_id AS recipient_user_id, name, email FROM ".$db_settings['forum_table']." WHERE id = ".intval($_REQUEST['id'])." LIMIT 1") or raise_error('database_error', mysqli_error($connid));
 			if (mysqli_num_rows($result) != 1) {
 				header('Location: index.php');
 				exit;
 			}
 			$data = mysqli_fetch_array($result);
 			mysqli_free_result($result);
-			if ($data['user_id'] > 0) {
+			if ($data['recipient_user_id'] > 0) {
 				// registered user, get  data from userdata table:
-				$result = @mysqli_query($connid, "SELECT user_name, email_contact FROM ".$db_settings['userdata_table']." WHERE user_id = ".intval($data['user_id'])." LIMIT 1") or raise_error('database_error', mysqli_error($connid));
+				$result = @mysqli_query($connid, "SELECT user_name, email_contact FROM ".$db_settings['userdata_table']." WHERE user_id = ".intval($data['recipient_user_id'])." LIMIT 1") or raise_error('database_error', mysqli_error($connid));
 				$userdata = mysqli_fetch_array($result);
 				mysqli_free_result($result);
-				if ($userdata['email_contact'] != 1) {
-					$smarty->assign('error_message', 'impossible_to_contact');
-				} else {
+				if ($isModOrAdmin || $isUser && $userdata['email_contact'] > 0 || $userdata['email_contact'] == 2) {
 					$smarty->assign('recipient_name', htmlspecialchars($userdata['user_name']));
-					$smarty->assign('recipient_user_id', intval($data['user_id']));
+					$smarty->assign('recipient_user_id', intval($data['recipient_user_id']));
+				} else {
+					$smarty->assign('error_message', 'impossible_to_contact');
 				}
 			} else {
 				// not registered user, get data from forum table:
@@ -58,33 +57,43 @@ switch($action) {
 					$smarty->assign('id', intval($_REQUEST['id']));
 				}
 			}
-		} elseif (isset($_REQUEST['user_id'])) {
-			$result = @mysqli_query($connid, "SELECT user_name, email_contact FROM ".$db_settings['userdata_table']." WHERE user_id = '".intval($_REQUEST['user_id'])."' LIMIT 1") or raise_error('database_error', mysqli_error($connid));
+		} elseif (isset($_REQUEST['recipient_user_id'])) {
+			$result = @mysqli_query($connid, "SELECT user_name, email_contact FROM ".$db_settings['userdata_table']." WHERE user_id = '".intval($_REQUEST['recipient_user_id'])."' LIMIT 1") or raise_error('database_error', mysqli_error($connid));
 			if(mysqli_num_rows($result) != 1) {
 				header('Location: index.php');
 				exit;
 			}
 			$userdata = mysqli_fetch_array($result);
 			mysqli_free_result($result);
-			if ($userdata['email_contact'] != 1) {
-				$smarty->assign('error_message', 'impossible_to_contact');
-			} else {
+			if ($isModOrAdmin || $isUser && $userdata['email_contact'] > 0 || $userdata['email_contact'] == 2) {
 				$smarty->assign('recipient_name', htmlspecialchars($userdata['user_name']));
-				$smarty->assign('recipient_user_id', intval($_REQUEST['user_id']));
+				$smarty->assign('recipient_user_id', intval($_REQUEST['recipient_user_id']));
+			} else {
+				$smarty->assign('error_message', 'impossible_to_contact');
 			}
 		}
 	break;
 	case 'message_submit':
 		if (isset($_POST['id'])) 
 			$id = intval($_POST['id']);
-		if (isset($_POST['user_id'])) 
-			$user_id = intval($_POST['user_id']);
-		if (isset($_POST['sender_email'])) 
-			$sender_email = trim(preg_replace("/\r/", "", $_POST['sender_email']));
+		if (isset($_POST['recipient_user_id'])) 
+			$recipient_user_id = intval($_POST['recipient_user_id']);
 		if (isset($_POST['text'])) 
 			$text = trim($_POST['text']);
 		if (isset($_POST['subject'])) 
 			$subject = trim($_POST['subject']);
+		if (isset($_SESSION[$settings['session_prefix'].'user_id'])) {
+			$result = @mysqli_query($connid, "SELECT user_email FROM ".$db_settings['userdata_table']." WHERE user_id = '".intval($_SESSION[$settings['session_prefix'].'user_id'])."' LIMIT 1") or raise_error('database_error', mysqli_error($connid));
+			$data = mysqli_fetch_array($result);
+			mysqli_free_result($result);
+			$sender_email = $data['user_email']; // email of reg. user taken from profil
+			$confirmation_mail_to_sender = isset($_POST['confirmation_email']) && intval($_POST['confirmation_email']) == 1 ? TRUE : FALSE;
+		}
+		else {
+			$sender_email = $_POST['sender_email'];
+			$confirmation_mail_to_sender = FALSE;
+		}
+		$sender_email = trim(preg_replace("/\r/", "", $sender_email));
 
 		// check form session and time used to complete the form:
 		setReceiptTimestamp();
@@ -99,12 +108,18 @@ switch($action) {
 		}
 
 		if (empty($errors)) {
-			if (empty($sender_email) || $sender_email == '') $errors[] = 'error_message_no_email';
-			elseif (!is_valid_email($sender_email)) $errors[] = 'error_email_invalid';
-			if (empty($subject) || $subject == '') $errors[] = 'error_message_no_subject';
-			if (empty($text) || $text == '') $errors[] = 'error_message_no_text';
-			if (my_strlen($subject, $lang['charset']) > $settings['email_subject_maxlength']) $errors[] = 'error_email_subject_too_long';
-			if (my_strlen($text, $lang['charset']) > $settings['email_text_maxlength']) $errors[] = 'error_email_text_too_long';
+			if (empty($sender_email) || $sender_email == '') 
+				$errors[] = 'error_message_no_email';
+			elseif (!is_valid_email($sender_email)) 
+				$errors[] = 'error_email_invalid';
+			if (empty($subject) || $subject == '') 
+				$errors[] = 'error_message_no_subject';
+			if (empty($text) || $text == '') 
+				$errors[] = 'error_message_no_text';
+			if (my_strlen($subject, $lang['charset']) > $settings['email_subject_maxlength']) 
+				$errors[] = 'error_email_subject_too_long';
+			if (my_strlen($text, $lang['charset']) > $settings['email_text_maxlength']) 
+				$errors[] = 'error_email_text_too_long';
 			$smarty->assign('text_length', my_strlen($text,$lang['charset']));
 		}
 
@@ -134,15 +149,17 @@ switch($action) {
 			unset($_SESSION['captcha_session']);
 		}
 
-		// Akismet spam check:
-		if (empty($errors) && $settings['akismet_key'] != '' && $settings['akismet_mail_check'] == 1) {
-			if (empty($_SESSION[$settings['session_prefix'].'user_id']) || isset($_SESSION[$settings['session_prefix'].'user_type']) && $_SESSION[$settings['session_prefix'].'user_type'] == 0 && $settings['akismet_check_registered'] == 1) {
+		// Spam check: 
+		if (empty($errors) && (empty($_SESSION[$settings['session_prefix'].'user_id']) || isset($_SESSION[$settings['session_prefix'].'user_type']) && $_SESSION[$settings['session_prefix'].'user_type'] == 0 && $settings['spam_check_registered'] == 1)) {
+			$mail_parts = explode("@", $sender_email);
+			$sender_name = $mail_parts[0];
+			$check_mail['author'] = $mail_parts[0];
+			$check_mail['email'] = $sender_email;
+			$check_mail['body'] = $text;
+				
+			// Akismet spam check: 
+			if ($settings['akismet_key'] != '' && $settings['akismet_mail_check'] == 1) {
 				require('modules/akismet/akismet.class.php');
-				$mail_parts = explode("@", $sender_email);
-				$sender_name = $mail_parts[0];
-				$check_mail['author'] = $mail_parts[0];
-				$check_mail['email'] = $sender_email;
-				$check_mail['body'] = $text;
 				$akismet = new Akismet($settings['forum_address'], $settings['akismet_key'], $check_mail);
 				// test for errors
 				if ($akismet->errorsExist()) {
@@ -157,82 +174,108 @@ switch($action) {
 				} else {
 					// No errors, check for spam
 					if ($akismet->isSpam()) {
-						$errors[] = 'error_spam_suspicion';
+						$errors[] = 'error_email_spam_suspicion';
 					}
+				}
+			}
+		
+			// B8 spam check: 
+			if ($settings['b8_mail_check'] == 1) {
+				try {
+					$check_text = implode("\r\n", $check_mail);
+					$b8_spam_probability = 100.0 * $B8_BAYES_FILTER->classify($check_text);
+					if ($b8_spam_probability > intval($settings['b8_spam_probability_threshold']))
+						$errors[] = 'error_email_spam_suspicion';
+				}
+				catch(Exception $e) {
+					raise_error('database_error', $e->getMessage()); // What should we do here?
+					$b8_spam = 0;
 				}
 			}
 		}
 
-		if (isset($id)) {
-			// get email address from entry:
-			$result = @mysqli_query($connid, "SELECT user_id, name, email FROM ".$db_settings['forum_table']." WHERE id = ".intval($id)." LIMIT 1") or raise_error('database_error', mysqli_error($connid));
-			if(mysqli_num_rows($result) != 1) {
-				header('Location: index.php');
-				exit;
-			}
-			$data = mysqli_fetch_array($result);
-			mysqli_free_result($result);
-			if ($data['user_id'] > 0) {
-				// registered user, get  data from userdata table:
-				$result = @mysqli_query($connid, "SELECT user_email, email_contact FROM ".$db_settings['userdata_table']." WHERE user_id = ".intval($data['user_id'])." LIMIT 1") or raise_error('database_error', mysqli_error($connid));
+		if (empty($errors)) {
+			if (isset($id)) {
+				// get email address from entry:
+				$result = @mysqli_query($connid, "SELECT user_id AS recipient_user_id, name, email FROM ".$db_settings['forum_table']." WHERE id = ".intval($id)." LIMIT 1") or raise_error('database_error', mysqli_error($connid));
+				if(mysqli_num_rows($result) != 1) {
+					header('Location: index.php');
+					exit;
+				}
+				$data = mysqli_fetch_array($result);
+				mysqli_free_result($result);
+				if ($data['recipient_user_id'] > 0) {
+					// registered user, get  data from userdata table:
+					$result = @mysqli_query($connid, "SELECT user_email, email_contact FROM ".$db_settings['userdata_table']." WHERE user_id = ".intval($data['recipient_user_id'])." LIMIT 1") or raise_error('database_error', mysqli_error($connid));
+					$userdata = mysqli_fetch_array($result);
+					mysqli_free_result($result);
+					if ($isModOrAdmin || $isUser && $userdata['email_contact'] > 0 || $userdata['email_contact'] == 2) {
+						$smarty->assign('recipient_name', htmlspecialchars($userdata['user_name']));
+						$recipient_email = $data['user_email'];
+					} else {
+						$errors[] = TRUE;
+						$smarty->assign('error_message', 'impossible_to_contact');
+					}
+				} else {
+					// not registered user, get data from forum table:
+					if ($data['email'] == '') {
+						$errors[] = TRUE;
+						$smarty->assign('error_message','impossible_to_contact');
+					} else {
+						$recipient_name = htmlspecialchars($data['name']);
+						$recipient_email = $data['email'];
+						$smarty->assign('recipient_name', $recipient_name);
+					}
+				}
+			} elseif (isset($recipient_user_id)) {
+				$result = @mysqli_query($connid, "SELECT user_name, user_email, email_contact FROM ".$db_settings['userdata_table']." WHERE user_id = '".intval($recipient_user_id)."' LIMIT 1") or raise_error('database_error', mysqli_error($connid));
+				if (mysqli_num_rows($result) != 1) {
+					header('Location: index.php');
+					exit;
+				}
 				$userdata = mysqli_fetch_array($result);
 				mysqli_free_result($result);
-				if ($userdata['email_contact'] != 1) {
+				if ($isModOrAdmin || $isUser && $userdata['email_contact'] > 0 || $userdata['email_contact'] == 2) {
+					$recipient_name = htmlspecialchars($userdata['user_name']);
+					$recipient_email = $userdata['user_email'];
+					$smarty->assign('recipient_name', $recipient_name);
+				} else {
 					$errors[] = TRUE;
 					$smarty->assign('error_message', 'impossible_to_contact');
-				} else {
-					$smarty->assign('recipient_name', htmlspecialchars($userdata['user_name']));
-					$recipient_email = $data['user_email'];
 				}
 			} else {
-				// not registered user, get data from forum table:
-				if ($data['email'] == '') {
-					$errors[] = TRUE;
-					$smarty->assign('error_message','impossible_to_contact');
-				} else {
-					$recipient_name = htmlspecialchars($data['name']);
-					$recipient_email = $data['email'];
-					$smarty->assign('recipient_name', $recipient_name);
-				}
+				$recipient_name = $settings['forum_name'];
+				$recipient_email = $settings['forum_email'];
 			}
-		} elseif (isset($user_id)) {
-			$result = @mysqli_query($connid, "SELECT user_name, user_email, email_contact FROM ".$db_settings['userdata_table']." WHERE user_id = '".intval($user_id)."' LIMIT 1") or raise_error('database_error', mysqli_error($connid));
-			if (mysqli_num_rows($result) != 1) {
-				header('Location: index.php');
-				exit;
-			}
-			$userdata = mysqli_fetch_array($result);
-			mysqli_free_result($result);
-			if ($userdata['email_contact'] != 1) {
-				$errors[] = TRUE;
-				$smarty->assign('error_message', 'impossible_to_contact');
-			} else {
-				$recipient_name = htmlspecialchars($userdata['user_name']);
-				$recipient_email = $userdata['user_email'];
-				$smarty->assign('recipient_name', $recipient_name);
-			}
-		} else {
-			$recipient_name = $settings['forum_name'];
-			$recipient_email = $settings['forum_email'];
 		}
 
 		if (empty($errors)) {
 			// load e-mail strings from default language file:
 			$smarty->configLoad($settings['language_file'], 'emails');
 			$lang = $smarty->getConfigVars();
-			if (isset($_SESSION[$settings['session_prefix'].'user_name'])) $emailbody = str_replace("[user]", $_SESSION[$settings['session_prefix'].'user_name'], $lang['contact_email_txt_user']);
-			else $emailbody = $lang['contact_email_txt'];
+			if (isset($_SESSION[$settings['session_prefix'].'user_name'])) 
+				$emailbody = str_replace("[user]", $_SESSION[$settings['session_prefix'].'user_name'], $lang['contact_email_txt_user']);
+			else 
+				$emailbody = $lang['contact_email_txt'];
 			$emailbody = str_replace("[message]", $text, $emailbody);
 			$emailbody = str_replace("[forum_address]", $settings['forum_address'], $emailbody);
-			if (!my_mail($recipient_email, $subject, $emailbody, $sender_email)) $errors[] = 'mail_error';
+			if (!my_mail($recipient_email, $subject, $emailbody, $sender_email)) 
+				$errors[] = 'mail_error';
+			if (isset($_SESSION[$settings['session_prefix'].'user_id']) && $confirmation_mail_to_sender && !my_mail($sender_email, $subject, $emailbody, $sender_email))
+				$errors[] = 'mail_error';
 		}
 		if (isset($errors)) {
 			$smarty->assign('errors',$errors);
-			if (isset($id)) $smarty->assign('id', intval($id));
-			if (isset($user_id)) $smarty->assign('recipient_user_id', intval($user_id));
-			if (isset($sender_email)) $smarty->assign('sender_email', htmlspecialchars($sender_email));
-			if (isset($text)) $smarty->assign('text', htmlspecialchars($text));
-			if (isset($subject)) $smarty->assign('subject', htmlspecialchars($subject));
+			if (isset($id)) 
+				$smarty->assign('id', intval($id));
+			if (isset($recipient_user_id)) 
+				$smarty->assign('recipient_user_id', intval($recipient_user_id));
+			if (isset($sender_email)) 
+				$smarty->assign('sender_email', htmlspecialchars($sender_email));
+			if (isset($text)) 
+				$smarty->assign('text', htmlspecialchars($text));
+			if (isset($subject)) 
+				$smarty->assign('subject', htmlspecialchars($subject));
 		} else {
 			$smarty->assign('sent', TRUE);
 		}

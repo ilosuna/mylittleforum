@@ -6,8 +6,8 @@
  * @author Mark Alexander Hoschek < alex at mylittleforum dot net >
  * @author Michael Lösler (https://github.com/loesler)
  * @author Heiko August (https://github.com/auge8472)
- * @copyright 2006-2018 Mark Alexander Hoschek
- * @version 2.4.99.1 (2019-06-01)
+ * @copyright 2006-2019 Mark Alexander Hoschek
+ * @version 2.4.99.3 (2019-09-24)
  * @link https://mylittleforum.net/
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
@@ -31,6 +31,7 @@ define('THEMES_DIR', 'themes');
 session_start();
 
 include('config/db_settings.php');
+include('includes/mailer.inc.php');
 include('includes/functions.inc.php');
 include('includes/main.inc.php');
 
@@ -60,6 +61,8 @@ if ($lang['locale_charset'] != $lang['charset'])
 @ini_set('default_charset', $lang['charset']);
 setlocale(LC_ALL, $lang['locale']);
 setlocale(LC_NUMERIC, "C");
+
+include('includes/b8.inc.php');
 
 $smarty->assign('settings', $settings);
 

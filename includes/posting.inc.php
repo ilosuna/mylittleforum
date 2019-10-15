@@ -4,35 +4,6 @@ if (!defined('IN_INDEX')) {
 	exit;
 }
 
-/** config for b8 filter **/
-define('B8_CONFIG_LEXER', array(
-	'min_size'      => 3,
-	'max_size'      => 30,
-	'allow_numbers' => FALSE,
-	'old_get_html'  => FALSE,
-	'get_html'      => TRUE,
-	'get_uris'      => TRUE,
-	'get_bbcode'    => FALSE
-));
-
-define('B8_CONFIG_DEGENERATOR', array(
-	'encoding'  => isset($lang['charset']) ? $lang['charset'] : 'UTF-8',
-	'multibyte' => function_exists('mb_strtolower') && function_exists('mb_strtoupper') && function_exists('mb_substr')
-));
-
-define('B8_CONFIG_DATABASE', array(
-	'storage' => 'mysqli'
-));
-
-define('B8_CONFIG_AUTHENTICATION', array(
-	'database'   => $db_settings['database'],
-	'table_name' => $db_settings['b8_wordlist_table'],
-	'host'       => $db_settings['host'],
-	'user'       => $db_settings['user'],
-	'pass'       => $db_settings['password']
-));
-/** config for b8 filter **/
-
 if (empty($_SESSION[$settings['session_prefix'] . 'user_id']) && $settings['captcha_posting'] > 0) {
 	require('modules/captcha/captcha.php');
 	$captcha = new Captcha();
@@ -72,6 +43,9 @@ if (isset($_POST['p_category']))
 	$p_category = intval($_POST['p_category']);
 else
 	$p_category = 0;
+
+$isUser = isset($_SESSION[$settings['session_prefix'].'user_type']) && isset($_SESSION[$settings['session_prefix'].'user_id']);
+$isModOrAdmin = $isUser && ($_SESSION[$settings['session_prefix'].'user_type'] == 1 || $_SESSION[$settings['session_prefix'].'user_type'] == 2);
 
 // determine mode:
 if (isset($_SESSION[$settings['session_prefix'] . 'user_id'])) {
@@ -786,7 +760,17 @@ switch ($action) {
 			}
 			
 			// check data:
-			if (isset($_POST['tags']) && isset($_SESSION[$settings['session_prefix'] . 'user_type']) && ($_SESSION[$settings['session_prefix'] . 'user_type'] > 0)) {
+			/* Tags
+				0 == Off
+				1 == Admins/Mods
+				2 == reg. Users
+				3 == everyone
+			*/
+			if (isset($_POST['tags']) && isset($settings['tags']) && $settings['tags'] > 0 &&
+					(($settings['tags'] > 2) ||
+					($settings['tags'] == 2 && isset($_SESSION[$settings['session_prefix'] . 'user_type'])) ||
+					($settings['tags'] == 1 && isset($_SESSION[$settings['session_prefix'] . 'user_type']) && ($_SESSION[$settings['session_prefix'] . 'user_type'] > 0))
+				)) {
 				$tagStr = trim($_POST['tags']);
 				$tagsArray = array_filter(array_map('trim', explode(',', $tagStr)), function($value) { return $value !== ''; });
 
@@ -947,11 +931,12 @@ switch ($action) {
 			
 			// Akismet and B8 spam check:
 			if (empty($errors) && isset($_POST['save_entry'])) {
-				if (empty($_SESSION[$settings['session_prefix'] . 'user_id']) || isset($_SESSION[$settings['session_prefix'] . 'user_type']) && $_SESSION[$settings['session_prefix'] . 'user_type'] == 0 && $settings['spam_check_registered'] == 1) {
+				if (empty($_SESSION[$settings['session_prefix'] . 'user_id']) || isset($_SESSION[$settings['session_prefix'] . 'user_type']) && $settings['spam_check_registered'] == 1) {
+					$is_mod_or_admin = isset($_SESSION[$settings['session_prefix'] . 'user_type']) && $_SESSION[$settings['session_prefix'] . 'user_type'] > 0;
 					// fetch user data if registered user:
 					$check_posting = [];
 					if (isset($_SESSION[$settings['session_prefix'] . 'user_id'])) {
-						$akismet_userdata_result = @mysqli_query($connid, "SELECT user_email, user_hp FROM " . $db_settings['userdata_table'] . " WHERE user_id = " . intval($_SESSION[$settings['session_prefix'] . 'user_id']) . " LIMIT 1") or die(mysqli_error($connid));
+						$akismet_userdata_result = mysqli_query($connid, "SELECT user_email, user_hp FROM " . $db_settings['userdata_table'] . " WHERE user_id = " . intval($_SESSION[$settings['session_prefix'] . 'user_id']) . " LIMIT 1") or raise_error('database_error', mysqli_error($connid));
 						$akismet_userdata_data = mysqli_fetch_array($akismet_userdata_result);
 						mysqli_free_result($akismet_userdata_result);
 						if ($akismet_userdata_data['user_hp'] != '')
@@ -965,7 +950,8 @@ switch ($action) {
 					$check_posting['author'] = $name;
 					$check_posting['body']   = $text;
 					
-					if ($settings['akismet_key'] != '' && $settings['akismet_entry_check'] == 1) {
+					// check only postings of users
+					if ($settings['akismet_key'] != '' && $settings['akismet_entry_check'] == 1 && !$is_mod_or_admin) {
 						require('modules/akismet/akismet.class.php');
 						$akismet = new Akismet($settings['forum_address'], $settings['akismet_key'], $check_posting);
 						// test for errors
@@ -999,24 +985,44 @@ switch ($action) {
 							}
 						}
 					}
-					
+
 					if ($settings['b8_entry_check'] == 1) {
 						try {
-							require('modules/b8/b8.php');
-							$b8 = new b8(B8_CONFIG_DATABASE, B8_CONFIG_AUTHENTICATION, B8_CONFIG_LEXER, B8_CONFIG_DEGENERATOR);
+							// unlearn edited posting to avoid redundantly training data 
+							if ($posting_mode == 1) { // edited posting
+								$b8_spam_or_ham_result = mysqli_query($connid, "SELECT `training_type` FROM `" . $db_settings['b8_rating_table'] . "` WHERE `eid` = " . intval($id) . " LIMIT 1") or raise_error('database_error', mysqli_error($connid));
+								$b8_spam_or_ham_data   = mysqli_fetch_array($b8_spam_or_ham_result);
+								mysqli_free_result($b8_spam_or_ham_result);
+								
+								if (isset($b8_spam_or_ham_data['training_type']) && $b8_spam_or_ham_data['training_type'] != 0) { // 0 == no decision, 1 == learn(ed) ham, 2 == learn(ed) spam
+									$original_unedited_posting = [];
+									$original_unedited_posting['author']  = empty($field['name']) ? $name : $field['name'];
+									$original_unedited_posting['email']   = $field['email'];
+									$original_unedited_posting['website'] = $field['hp'];
+									$original_unedited_posting['body']    = $field['text'];
+									$original_unedited_text = implode("\r\n", $original_unedited_posting);
+									
+									if ($b8_spam_or_ham_data['training_type'] == 1)  // original (unedited) entry was flaged as HAM
+										$B8_BAYES_FILTER->unlearn($original_unedited_text, b8::HAM);
+									elseif ($b8_spam_or_ham_data['training_type'] == 2) // original (unedited) entry was flaged as SPAM
+										$B8_BAYES_FILTER->unlearn($original_unedited_text, b8::SPAM);
+								}
+							}
+													
 							$check_text = implode("\r\n", $check_posting);
-							
-							$b8_spam_probability = 100.0 * $b8->classify($check_text);
-							$b8_spam = $b8_spam_probability > intval($settings['b8_spam_probability_threshold']);
-										
+							$b8_spam_probability = 100.0 * $B8_BAYES_FILTER->classify($check_text);
+							// postings of admins/mods are always HAM, postings of users are checked
+							$b8_spam = $b8_spam_probability >           intval($settings['b8_spam_probability_threshold'])  && !$is_mod_or_admin;
+							$b8_ham  = $b8_spam_probability <= (100.0 - intval($settings['b8_spam_probability_threshold'])) ||  $is_mod_or_admin;
+
 							if ($settings['b8_auto_training'] == 1) {
 								if ($b8_spam) {
 									$b8_spam_rating = 2;  // SPAM
-									$b8->learn($check_text, b8::SPAM);
+									$B8_BAYES_FILTER->learn($check_text, b8::SPAM);
 								}
-								elseif ($b8_spam_probability < (100.0 - intval($settings['b8_spam_probability_threshold']))) {
+								elseif ($b8_ham) {
 									$b8_spam_rating = 1;  // HAM
-									$b8->learn($check_text, b8::HAM);
+									$B8_BAYES_FILTER->learn($check_text, b8::HAM);
 								}
 								else
 									$b8_spam_rating = 0;  // No Decision
@@ -1113,7 +1119,8 @@ switch ($action) {
 						$cookie_data = urlencode($name) . '|' . urlencode($email) . '|' . urlencode($hp) . '|' . urlencode($location);
 						setcookie($settings['session_prefix'] . 'userdata', $cookie_data, TIMESTAMP + (3600 * 24 * $settings['cookie_validity_days']));
 					}
-					if (isset($back) && $back == 'thread')
+					// If the posting is classified as SPAM, redirect the user to the single entry view, which contains the SPAM warning message
+					if (isset($back) && $back == 'thread' && $spam == 0)
 						header('Location: index.php?mode=thread&id=' . $new_data['id'] . '#p' . $new_data['id']);
 					else
 						header('Location: index.php?id=' . $new_data['id']);
@@ -1192,7 +1199,7 @@ switch ($action) {
 					$pr_result = @mysqli_query($connid, "SELECT email_contact, user_hp, user_location, signature FROM " . $db_settings['userdata_table'] . " WHERE user_id = " . intval($posting_user_id) . " LIMIT 1") or die(mysqli_error($connid));
 					$pr_data = mysqli_fetch_array($pr_result);
 					mysqli_free_result($pr_result);
-					if ($pr_data['email_contact'] != 0)
+					if ($isModOrAdmin || $isUser && $pr_data['email_contact'] > 0 || $pr_data['email_contact'] == 2)
 						$smarty->assign('email', true);
 					if (trim($pr_data['user_hp']) != '') {
 						$smarty->assign('preview_hp', htmlspecialchars(add_http_if_no_protocol($pr_data['user_hp'])));
@@ -1239,6 +1246,8 @@ switch ($action) {
 				$smarty->assign('name', htmlspecialchars($name));
 				$smarty->assign('subject', htmlspecialchars($subject));
 				$smarty->assign('text', htmlspecialchars($text));
+				if (isset($_SESSION[$settings['session_prefix'] . 'user_type']))
+					$smarty->assign('user_type', htmlspecialchars($_SESSION[$settings['session_prefix'] . 'user_type']));
 				if (isset($_POST['repeat_email']))
 					$smarty->assign('honey_pot_email',  htmlspecialchars($_POST['repeat_email']));
 				if (isset($_POST['phone']))
@@ -1733,15 +1742,12 @@ switch ($action) {
 					// 0 == no decision, 1 == learned ham, 2 == learned spam
 					if ($settings['b8_entry_check'] == 1 && ($data['b8_spam'] != 1 || empty($data['training_type']))) { // b8 did not flag the entry as SPAM
 						try {
-							require('modules/b8/b8.php');
-							$b8 = new b8(B8_CONFIG_DATABASE, B8_CONFIG_AUTHENTICATION, B8_CONFIG_LEXER, B8_CONFIG_DEGENERATOR);
 							$check_text = implode("\r\n", $check_posting);
-							
 							if ($data['training_type'] == 1)  // wrongly flaged as HAM, remove it
-								$b8->unlearn($check_text, b8::HAM);
+								$B8_BAYES_FILTER->unlearn($check_text, b8::HAM);
 
-							$b8->learn($check_text, b8::SPAM); // train for SPAM
-							//$b8_spam_probability = $b8->classify($check_text);
+							$B8_BAYES_FILTER->learn($check_text, b8::SPAM); // train for SPAM
+							//$b8_spam_probability = $B8_BAYES_FILTER->classify($check_text);
 							//$b8_spam        = 1;  // SPAM
 							//$b8_spam_rating = 2;  // SPAM
 						}
@@ -1847,9 +1853,15 @@ switch ($action) {
 				if ($language_file != $settings['language_file'])
 					setlocale(LC_ALL, $lang['locale']);
 				
-				// send confirm mails as they haven't been seent in spam status: (2nd parameter "true" adds a delayed message)
-				emailNotification2ParentAuthor($id, true);
-				emailNotification2ModsAndAdmins($id, true);
+				// check, if entry was flagged as spam, and send message (do not send messages if entry was flaged as ham)
+				if (($settings['akismet_entry_check'] == 0 && $settings['b8_entry_check'] == 0) || 
+						( ($settings['akismet_key'] != '' && $settings['akismet_entry_check'] == 1 && $data['spam_check_status'] == 1 && $data['akismet_spam'] != 0) ||
+						($settings['b8_entry_check'] == 1 && $data['b8_spam'] != 0) )) {
+
+					// send confirm mails as they haven't been seent in spam status: (2nd parameter "true" adds a delayed message)
+					emailNotification2ParentAuthor($id, true);
+					emailNotification2ModsAndAdmins($id, true);
+				}
 				
 				if (isset($_POST['report_flag_ham_submit'])) {
 					if ($settings['akismet_entry_check'] == 1 || $settings['b8_entry_check'] == 1) {
@@ -1880,15 +1892,13 @@ switch ($action) {
 						// 0 == no decision, 1 == learned ham, 2 == learned spam
 						if ($settings['b8_entry_check'] == 1 && ($data['b8_spam'] != 0 || empty($data['training_type']))) { // b8 did not flag the entry as HAM
 							try {
-								require('modules/b8/b8.php');
-								$b8 = new b8(B8_CONFIG_DATABASE, B8_CONFIG_AUTHENTICATION, B8_CONFIG_LEXER, B8_CONFIG_DEGENERATOR);
 								$check_text = implode("\r\n", $check_posting);
 
 								if ($data['training_type'] == 2)  // wrongly flaged as SPAM, remove it
-									$b8->unlearn($check_text, b8::SPAM);
+									$B8_BAYES_FILTER->unlearn($check_text, b8::SPAM);
 	
-								$b8->learn($check_text, b8::HAM); // train for HAM
-								//$b8_spam_probability = $b8->classify($check_text);
+								$B8_BAYES_FILTER->learn($check_text, b8::HAM); // train for HAM
+								//$b8_spam_probability = $B8_BAYES_FILTER->classify($check_text);
 								//$b8_spam        = 0;  // HAM
 								//$b8_spam_rating = 1;  // HAM
 							}

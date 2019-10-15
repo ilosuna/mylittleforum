@@ -15,7 +15,7 @@ if(empty($_SESSION[$settings['session_prefix'].'user_type'])) exit;
 if($_SESSION[$settings['session_prefix'].'user_type']!=2) exit;
 
 // update data:
-$update['version'] = array('2.4.19.1', '2.4.20', '2.4.99.0', '2.4.99.1');
+$update['version'] = array('2.4.19.1', '2.4.20', '2.4.99.0', '2.4.99.1', '2.4.99.2', '2.4.99.3');
 $update['download_url'] = 'https://github.com/ilosuna/mylittleforum/releases/latest';
 $update['message'] = '';
 
@@ -104,15 +104,36 @@ switch($settings['version']) {
 		$update['items'][] = 'includes/admin.inc.php';                               // #478
 		$update['items'][] = 'includes/user.inc.php';                                // #478
 	case '2.4.99.1':
+		$update['items'][] = 'lang/';                                                // #489, #501
+		$update['items'][] = 'themes/default/subtemplates/admin.inc.tpl';            // #487, #489
+		$update['items'][] = 'themes/default/subtemplates/contact.inc.tpl';          // #489, #501, #505
+		$update['items'][] = 'themes/default/subtemplates/posting.inc.tpl';          // #494
+		$update['items'][] = 'themes/default/main.tpl';                              // #503, #504
+		$update['items'][] = 'includes/admin.inc.php';                               // #489
+		$update['items'][] = 'includes/contact.inc.php';                             // #489, #501, #505
+		$update['items'][] = 'includes/posting.inc.php';                             // #484, #491, #494, #505
+		$update['items'][] = 'includes/user.inc.php';                                // #505
+		$update['items'][] = 'includes/entry.inc.php';                               // #505
+		$update['items'][] = 'includes/thread.inc.php';                              // #505
+		$update['items'][] = 'includes/functions.inc.php';                           // #498, #499
+		$update['items'][] = 'includes/mailer.inc.php';                              // #498
+		$update['items'][] = 'modules/phpmailer/';                                   // #498
+		$update['items'][] = 'config/php_mailer.php';                                // #498
+		$update['items'][] = 'config/b8_config.php';                                 // #493
+		$update['items'][] = 'index.php';                                            // #498
+	case '2.4.99.2':
+		$update['items'][] = 'index.php';                                            // without pull request
+		$update['items'][] = 'includes/admin.inc.php';                               // without pull request
+		$update['items'][] = 'includes/entry.inc.php';                               // #509
+	case '2.4.99.3':
 		$update['items'][] = 'includes/entry.inc.php';                               // #481
-		$update['items'][] = 'includes/posting.inc.php';                             // #481, #484
+		$update['items'][] = 'includes/posting.inc.php';                             // #481
 		$update['items'][] = 'includes/thread.inc.php';                              // #481
 		$update['items'][] = 'lang/';                                                // #481
 		$update['items'][] = 'themes/default/subtemplates/entry.inc.tpl';            // #481
 		$update['items'][] = 'themes/default/subtemplates/thread.inc.tpl';           // #481
 		$update['items'][] = 'themes/default/subtemplates/thread_linear.inc.tpl';    // #481
 		$update['items'][] = 'themes/default/subtemplates/posting_user_report.inc.tpl'; // #481
-		$update['items'][] = 'themes/default/subtemplates/admin.inc.tpl';            // #487
 		
 		// !!!Do *NOT* add 'break;' to a single case!!!
 		// This is the only break to avoid the use of the default-case!
@@ -231,7 +252,7 @@ if (empty($update['errors']) && in_array($settings['version'], array('2.4.19.1',
 			if(!@mysqli_query($connid, "CREATE TABLE `" . $db_settings['b8_rating_table'] . "` (`eid` int(11) NOT NULL, `spam` tinyint(1) NOT NULL DEFAULT '0', `training_type` tinyint(1) NOT NULL DEFAULT '0', PRIMARY KEY (`eid`)) CHARSET=utf8 COLLATE=utf8_general_ci;")) {
 				$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
 			}
-			if(!@mysqli_query($connid, "CREATE TABLE `" . $db_settings['b8_wordlist_table'] . "` (`token` varchar(255) character set utf8mb4 collate utf8mb4_bin NOT NULL, `count_ham` int unsigned default NULL, `count_spam` int unsigned default NULL, PRIMARY KEY (`token`)) CHARSET=utf8mb4 COLLATE=utf8mb4_bin;")) {
+			if(!@mysqli_query($connid, "CREATE TABLE `" . $db_settings['b8_wordlist_table'] . "` (`token` varchar(128) character set utf8mb4 collate utf8mb4_bin NOT NULL, `count_ham` int unsigned default NULL, `count_spam` int unsigned default NULL, PRIMARY KEY (`token`)) CHARSET=utf8mb4 COLLATE=utf8mb4_bin;")) {
 				$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
 			}
 			if(!@mysqli_query($connid, "CREATE TABLE `" . $db_settings['uploads_table'] . "` (`id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, `uploader` int(10) UNSIGNED NULL, `filename` varchar(64) NULL, `tstamp` datetime NULL, PRIMARY KEY (id)) ENGINE=InnoDB CHARSET=utf8 COLLATE=utf8_general_ci;")) {
@@ -271,10 +292,16 @@ if (empty($update['errors']) && in_array($settings['version'], array('2.4.19.1',
 			}
 		}
 	}
+	else {
+		$update['errors'][] = 'Error, file "./config/db_settings.php" not found in line '.__LINE__.'!';
+	}
 }
 
 if (empty($update['errors']) && in_array($settings['version'], array('2.4.19.1', '2.4.20', '2.4.99.0'))) {
 	// changed tables
+	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['b8_wordlist_table'] . "` CHANGE `token` `token` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '';")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
 	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['banlists_table'] . "` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;")) {
 		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
 	}
@@ -293,13 +320,16 @@ if (empty($update['errors']) && in_array($settings['version'], array('2.4.19.1',
 	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['pages_table'] . "` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;")) {
 		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
 	}
+	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['tags_table'] . "` CHANGE `tag` `tag` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
 	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['tags_table'] . "` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;")) {
 		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
 	}
-	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['userdata_table'] . "` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;")) {
+	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['userdata_table'] . "` CHANGE `user_name` `user_name` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL;")) {
 		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
 	}
-	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['userdata_table'] . "` CHANGE `user_name` `user_name` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '';")) {
+	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['userdata_table'] . "` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;")) {
 		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
 	}
 	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['userdata_cache_table'] . "` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;")) {
@@ -315,6 +345,58 @@ if (empty($update['errors']) && in_array($settings['version'], array('2.4.19.1',
 }
 
 if (empty($update['errors']) && in_array($settings['version'], array('2.4.19.1', '2.4.20', '2.4.99.0', '2.4.99.1'))) {
+	// changed tables
+	if (!@mysqli_query($connid, "INSERT INTO `" . $db_settings['settings_table'] . "` (`name`, `value`) VALUES ('b8_mail_check', '0'), ('php_mailer', '0');")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['b8_wordlist_table'] . "` CHANGE `token` `token` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '';")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['tags_table'] . "` CHANGE `tag` `tag` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if(!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['userdata_table'] . "` CHANGE `user_name` `user_name` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['banlists_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['category_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['forum_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['smilies_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['userdata_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['pages_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['useronline_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['login_control_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['entry_cache_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['userdata_cache_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['b8_rating_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+	if (!@mysqli_query($connid, "ALTER TABLE `" . $db_settings['akismet_rating_table'] . "` ENGINE=InnoDB;")) {
+		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
+	}
+}
+
+if (empty($update['errors']) && in_array($settings['version'], array('2.4.19.1', '2.4.20', '2.4.99.0', '2.4.99.1', '2.4.99.2', '2.4.99.3'))) {
 	$table_prefix = preg_replace('/settings$/u', '', $db_settings['settings_table']);
 	// add new database table
 	if (file_exists("./config/db_settings.php") && is_writable("./config/db_settings.php")) {
@@ -360,9 +442,8 @@ if (empty($update['errors']) && in_array($settings['version'], array('2.4.19.1',
 	}
 }
 
-
-if(empty($update['errors'])) {
-	if(!@mysqli_query($connid, "UPDATE ".$db_settings['temp_infos_table']." SET value='". mysqli_real_escape_string($connid, $newVersion) ."' WHERE name = 'version'")) {
+if (empty($update['errors'])) {
+	if (!@mysqli_query($connid, "UPDATE ".$db_settings['temp_infos_table']." SET value='". mysqli_real_escape_string($connid, $newVersion) ."' WHERE name = 'version'")) {
 		$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
 	}
 	else {
@@ -370,7 +451,7 @@ if(empty($update['errors'])) {
 		$update['new_version'] = $newVersion;
 		// reenable the forum after database update is done
 		if (empty($update['errors'])) {
-			if(!@mysqli_query($connid, "UPDATE ".$db_settings['settings_table']." SET value = '1' WHERE name =  'forum_enabled'")) {
+			if (!@mysqli_query($connid, "UPDATE ".$db_settings['settings_table']." SET value = '1' WHERE name =  'forum_enabled'")) {
 				$update['errors'][] = 'Database error in line '.__LINE__.': ' . mysqli_error($connid);
 			}
 		}
